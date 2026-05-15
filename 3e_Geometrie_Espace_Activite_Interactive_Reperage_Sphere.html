@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Repérage Sphérique - Directions Dynamiques</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        :root { 
+            --primary: #3b82f6; --accent: #fbbf24; --bg-page: #334155; 
+            --bg-card: #1e293b; --text: #f8fafc; --panel: #0f172a;
+        }
+        body { font-family: system-ui, sans-serif; background-color: var(--bg-page); color: var(--text); margin: 0; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .app-container { width: 98vw; height: 95vh; display: grid; grid-template-columns: 320px 1fr 280px; gap: 10px; padding: 10px; }
+        
+        .sidebar, .method-panel { background: var(--bg-card); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid #475569; }
+        
+        #globe-container { background: #1e293b; border-radius: 12px; border: 1px solid #475569; }
+        
+        .control-group { background: #334155; padding: 12px; border-radius: 8px; border: 1px solid #475569; }
+        .coord-display { font-family: 'Courier New', monospace; font-size: 1.2rem; color: var(--accent); text-align: center; font-weight: bold; margin-top: 5px; }
+        
+        .btn { padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; }
+        .btn-view { background: #059669; color: white; }
+        .btn-view.active { background: #10b981; border: 2px solid white; }
+        
+        .method-step { font-size: 0.85rem; line-height: 1.4; background: var(--panel); padding: 10px; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 10px; }
+        .method-step b { color: var(--accent); }
+        .dir-highlight { color: #4ade80; font-weight: bold; } /* Vert pour les directions */
+        
+        h3 { font-size: 1rem; margin: 0 0 10px 0; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="sidebar">
+        <h3>🧭 Commandes</h3>
+        <div class="control-group">
+            <label>Latitude (Vertical)</label>
+            <input type="range" id="lat-slider" min="-90" max="90" value="45" style="width:100%">
+            <div id="lat-val" class="coord-display">45° N</div>
+        </div>
+        <div class="control-group">
+            <label>Longitude (Horizontal)</label>
+            <input type="range" id="lon-slider" min="-180" max="180" value="-30" style="width:100%">
+            <div id="lon-val" class="coord-display">30° O</div>
+        </div>
+        <button id="btn-view" class="btn btn-view" onclick="toggleAngles()">👁️ Analyser les angles</button>
+        <button class="btn" style="background:#475569; color:white; margin-top:10px;" onclick="resetCamera()">🔄 Recentrer sur Greenwich</button>
+    </div>
+
+    <div id="globe-container"></div>
+
+    <div class="method-panel">
+    <div class="definition-panel">
+        <h3>📝 Définition </h3>
+        <div class="definition-step">
+            <b> Longitude :</b><br>        
+La longitude d’un point M est la mesure de l’angle entre le méridien de Greenwich (longitude 0°) et le méridien passant par le point M. Elle varie entre 180° Ouest et 180° Est.
+        </div>
+        <div class="definition-step">
+            <b> Latitude :</b><br>  
+        La latitude d’un point est la mesure de l’angle entre l’Equateur (latitude 0°) et le parallèle passant par le point M. Elle varie entre 90° Sud et 90° Nord.
+        </div>
+        <div class="definition-step"> 
+        <h3>📝 Méthode </h3>
+        <div class="methode-step">          
+        Depuis le point d'intersection du méridien de Greenwich et l'équateur, on pivote horizontalement de <b><span id="txt-lon">30</span>°</b> vers <span id="dir-lon" class="dir-highlight">l'Ouest</span>. Puis, on se déplace verticalement de <b><span id="txt-lat">45</span>°</b> vers <span id="dir-lat" class="dir-highlight">le Nord</span>.
+        </div>       
+        
+    </div>
+</div>
+
+<script>
+    let showAngles = false;
+
+    function getPos(lat, lon, r = 1) {
+        const phi = (90 - lat) * (Math.PI / 180);
+        const theta = (lon + 180) * (Math.PI / 180);
+        return { x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi) };
+    }
+
+    function toggleAngles() {
+        showAngles = !showAngles;
+        document.getElementById('btn-view').classList.toggle('active');
+        draw();
+    }
+
+    function draw(isNew = false) {
+        const lat = parseInt(document.getElementById('lat-slider').value);
+        const lon = parseInt(document.getElementById('lon-slider').value);
+        const data = [];
+
+        // Sphère & Grille
+        data.push({ type: 'mesh3d', x: [], y: [], z: [], alphahull: 0, opacity: 0.05, color: '#94a3b8', hoverinfo: 'none' });
+        
+        // Méridiens & Parallèles (Argentés)
+        for (let i = -75; i <= 75; i += 15) {
+            let x = [], y = [], z = [];
+            for (let j = -180; j <= 180; j += 5) { let p = getPos(i, j, 0.99); x.push(p.x); y.push(p.y); z.push(p.z); }
+            data.push({type: 'scatter3d', mode: 'lines', x, y, z, line: {color: '#64748b', width: 1.5}, hoverinfo: 'none'});
+        }
+        for (let j = -180; j < 180; j += 30) {
+            let x = [], y = [], z = [];
+            for (let i = -90; i <= 90; i += 5) { let p = getPos(i, j, 0.99); x.push(p.x); y.push(p.y); z.push(p.z); }
+            data.push({type: 'scatter3d', mode: 'lines', x, y, z, line: {color: '#64748b', width: 1.5}, hoverinfo: 'none'});
+        }
+
+        // Londres (Point L)
+        const pL = getPos(51.5, 0, 1.02);
+        data.push({ type: 'scatter3d', mode: 'markers+text', x: [pL.x], y: [pL.y], z: [pL.z], 
+            marker: {size: 6, color: '#4ade80'}, text: ["Londre"], textfont: {color: "#4ade80", size: 16} 
+        });
+
+        // Axes (Rouge/Bleu)
+        const line0 = (l1, l2, isLat, col) => {
+            let x = [], y = [], z = [];
+            for(let i=l1; i<=l2; i+=2) { let p = getPos(isLat?i:0, isLat?0:i, 1); x.push(p.x); y.push(p.y); z.push(p.z); }
+            return {type: 'scatter3d', mode: 'lines', x, y, z, line: {color: col, width: 5}};
+        };
+        data.push(line0(-180, 180, false, '#ff4d4d')); // Equateur
+        data.push(line0(-90, 90, true, '#3b82f6'));    // Greenwich
+
+        // Point & Angles
+        const pAt = getPos(lat, lon, 1.03);
+        const pProj = getPos(0, lon, 1);
+        const pZero = getPos(0, 0, 1);
+        data.push({ type: 'scatter3d', mode: 'markers', x: [pAt.x], y: [pAt.y], z: [pAt.z], marker: {size: 10, color: 'white', line:{width:2, color:'black'}} });
+
+        if (showAngles) {
+            data.push({ type: 'mesh3d', x: [0, pProj.x, pZero.x], y: [0, pProj.y, pZero.y], z: [0, 0, 0], opacity: 0.3, color: '#a78bfa' });
+            data.push({ type: 'scatter3d', mode: 'lines', x: [0, pProj.x], y: [0, pProj.y], z: [0, 0], line: {color: '#a78bfa', width: 6} });
+            data.push({ type: 'mesh3d', x: [0, pAt.x, pProj.x], y: [0, pAt.y, pProj.y], z: [0, pAt.z, 0], opacity: 0.4, color: '#fb923c' });
+            data.push({ type: 'scatter3d', mode: 'lines', x: [0, pAt.x], y: [0, pAt.y], z: [0, pAt.z], line: {color: '#fb923c', width: 6} });
+        }
+
+        const layout = {
+            showlegend: false, margin: {l:0, r:0, b:0, t:0}, paper_bgcolor: 'rgba(0,0,0,0)',
+            scene: { xaxis: {visible: false}, yaxis: {visible: false}, zaxis: {visible: false},
+                camera: isNew ? { eye: {x: 1.7, y: -0.8, z: 0.6} } : undefined
+            }
+        };
+        Plotly.react('globe-container', data, layout, {responsive: true, displayModeBar: false});
+    }
+
+    function update() {
+        const lat = parseInt(document.getElementById('lat-slider').value);
+        const lon = parseInt(document.getElementById('lon-slider').value);
+        
+        // Affichage des coordonnées (Sidebar)
+        document.getElementById('lat-val').innerText = lat >= 0 ? lat + "° N" : Math.abs(lat) + "° S";
+        document.getElementById('lon-val').innerText = lon >= 0 ? lon + "° E" : Math.abs(lon) + "° O";
+        
+        // MISE À JOUR DYNAMIQUE DE LA MÉTHODE
+        document.getElementById('txt-lon').innerText = Math.abs(lon);
+        document.getElementById('dir-lon').innerText = lon >= 0 ? "l'Est" : "l'Ouest";
+        
+        document.getElementById('txt-lat').innerText = Math.abs(lat);
+        document.getElementById('dir-lat').innerText = lat >= 0 ? "le Nord" : "le Sud";
+        
+        draw(false);
+    }
+
+    function resetCamera() { draw(true); }
+
+    document.getElementById('lat-slider').addEventListener('input', update);
+    document.getElementById('lon-slider').addEventListener('input', update);
+    
+    update();
+    resetCamera();
+</script>
+</body>
+</html>
