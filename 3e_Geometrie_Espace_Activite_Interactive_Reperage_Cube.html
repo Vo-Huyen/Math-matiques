@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Repérage dans un Cube 3D - Axes Réels</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        :root { 
+            --primary: #2563eb; --accent: #d97706; --bg: #f8fafc; 
+            --card: #ffffff; --text: #1e293b; --border: #cbd5e1;
+            --x-color: #dc2626; --y-color: #16a34a; --z-color: #2563eb;
+        }
+        body { font-family: sans-serif; background: #e2e8f0; color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        .ui-panel { width: 340px; background: var(--card); padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 4px 0 15px rgba(0,0,0,0.1); z-index: 100; overflow-y: auto; border-right: 1px solid var(--border); }
+        #cube-container { flex-grow: 1; background: var(--bg); position: relative; }
+        
+        .slider-box { background: #f1f5f9; padding: 12px; border-radius: 10px; border: 1px solid var(--border); }
+        input[type=range] { width: 100%; cursor: pointer; margin-top: 8px; }
+        
+        .val-display { font-size: 1.3rem; font-weight: bold; text-align: center; font-family: monospace; margin-top: 4px; }
+        
+        .method-step { font-size: 0.85rem; line-height: 1.4; background: #f1f5f9; padding: 12px; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 10px; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .method-step b { color: var(--accent); }
+        
+        h2 { margin: 0; font-size: 1.2rem; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+
+<div class="ui-panel">
+    <h2>📐 Repère Cartésien</h2>
+    
+    <div class="slider-box" style="border-top: 4px solid var(--x-color);">
+        <label>Abscisse X (Axe Rouge)</label>
+        <div id="x-val" class="val-display" style="color: var(--x-color);">X = 4</div>
+        <input type="range" id="x-slider" min="0" max="10" value="4" step="0.5">
+    </div>
+
+    <div class="slider-box" style="border-top: 4px solid var(--y-color);">
+        <label>Ordonnée Y (Axe Vert)</label>
+        <div id="y-val" class="val-display" style="color: var(--y-color);">Y = 6</div>
+        <input type="range" id="y-slider" min="0" max="10" value="6" step="0.5">
+    </div>
+
+    <div class="slider-box" style="border-top: 4px solid var(--z-color);">
+        <label>Cote Z (Axe Bleu)</label>
+        <div id="z-val" class="val-display" style="color: var(--z-color);">Z = 7</div>
+        <input type="range" id="z-slider" min="0" max="10" value="7" step="0.5">
+    </div>
+
+    <div style="margin-top: 5px;">
+        <h3 style="font-size: 0.95rem; margin: 0 0 10px 0; color: var(--accent);">📝 CONSTRUCTION DU POINT M</h3>
+        
+        <div class="method-step" style="border-left-color: var(--x-color);">
+            <b>1. Le long de l'Axe X (Rouge) :</b><br>
+            On part de l'origine O(0;0;0) et on avance de <span id="lbl-x" style="color:var(--x-color); font-weight:bold;">4</span>.
+        </div>
+        
+        <div class="method-step" style="border-left-color: var(--y-color);">
+            <b>2. Parallèlement à l'Axe Y (Vert) :</b><br>
+            Depuis cette position, on se déplace de <span id="lbl-y" style="color:var(--y-color); font-weight:bold;">6</span> vers la droite.
+        </div>
+        
+        <div class="method-step" style="border-left-color: var(--z-color);">
+            <b>3. Parallèlement à l'Axe Z (Bleu) :</b><br>
+            Enfin, on monte verticalement de <span id="lbl-z" style="color:var(--z-color); font-weight:bold;">7</span> pour placer **M**.
+        </div>
+    </div>
+    
+    <button class="btn" style="background:#64748b; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold; width:100%;" onclick="resetCamera()">🔄 Recentrer le repère</button>
+</div>
+
+<div id="cube-container"></div>
+
+<script>
+    const gd = document.getElementById('cube-container');
+
+    // Génère la structure fil de fer du cube unité (0 à 10)
+    function decrireCube() {
+        return {
+            x: [0, 10, 10, 0, 0, 0, 10, 10, 0, 0, 0, 0, 10, 10, 10, 10],
+            y: [0, 0, 10, 10, 0, 0, 0, 10, 10, 0, 10, 10, 10, 10, 0, 0],
+            z: [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 0, 0, 10, 10, 0]
+        };
+    }
+
+    function draw(isNew = false) {
+        const x = parseFloat(document.getElementById('x-slider').value);
+        const y = parseFloat(document.getElementById('y-slider').value);
+        const z = parseFloat(document.getElementById('z-slider').value);
+
+        const cubeGeo = decrireCube();
+        const maxAxe = 13; // Les axes vont plus loin que le cube (qui s'arrête à 10)
+
+        const data = [
+            // --- LES 3 AXES GÉOMÉTRIQUES MAÎTRES (Partent de l'origine et dépassent le cube) ---
+            {
+                type: 'scatter3d', mode: 'lines+text',
+                x: [0, maxAxe], y: [0, 0], z: [0, 0],
+                line: { color: '#dc2626', width: 4 },
+                text: ['', ' Axe X (Abscisses)'], textposition: 'top right',
+                textfont: { color: '#dc2626', size: 12, weight: 'bold' }, hoverinfo: 'skip'
+            },
+            {
+                type: 'scatter3d', mode: 'lines+text',
+                x: [0, 0], y: [0, maxAxe], z: [0, 0],
+                line: { color: '#16a34a', width: 4 },
+                text: ['', ' Axe Y (Ordonnées)'], textposition: 'top right',
+                textfont: { color: '#16a34a', size: 12, weight: 'bold' }, hoverinfo: 'skip'
+            },
+            {
+                type: 'scatter3d', mode: 'lines+text',
+                x: [0, 0], y: [0, 0], z: [0, maxAxe],
+                line: { color: '#2563eb', width: 4 },
+                text: ['', ' Axe Z (Cotes)'], textposition: 'top center',
+                textfont: { color: '#2563eb', size: 12, weight: 'bold' }, hoverinfo: 'skip'
+            },
+
+            // --- LE CUBE DE RÉFÉRENCE (Côté 10) ---
+            {
+                type: 'scatter3d', mode: 'lines',
+                x: cubeGeo.x, y: cubeGeo.y, z: cubeGeo.z,
+                line: { color: '#94a3b8', width: 2, dash: 'solid' },
+                hoverinfo: 'skip'
+            },
+
+            // --- LE CHEMINEMENT DE CONSTRUCTION DYNAMIQUE ---
+            // Étape 1 : Segment sur l'axe X (Rouge)
+            {
+                type: 'scatter3d', mode: 'lines',
+                x: [0, x], y: [0, 0], z: [0, 0],
+                line: { color: '#dc2626', width: 8 }, hoverinfo: 'skip'
+            },
+            // Étape 2 : Déplacement parallèle à Y (Vert)
+            {
+                type: 'scatter3d', mode: 'lines',
+                x: [x, x], y: [0, y], z: [0, 0],
+                line: { color: '#16a34a', width: 8 }, hoverinfo: 'skip'
+            },
+            // Étape 3 : Élévation parallèle à Z (Bleu)
+            {
+                type: 'scatter3d', mode: 'lines',
+                x: [x, x], y: [y, y], z: [0, z],
+                line: { color: '#2563eb', width: 8 }, hoverinfo: 'skip'
+            },
+
+            // --- LES POINTS FIXES ET REPERÉS ---
+            {
+                type: 'scatter3d', mode: 'markers+text',
+                x: [0, x], y: [0, y], z: [0, z],
+                marker: { 
+                    size: [7, 11], 
+                    color: ['#1e293b', '#fbbf24'], 
+                    line: { width: 2, color: '#ffffff' } 
+                },
+                text: ['O (0;0;0)', ` M (${x};${y};${z})`],
+                textposition: 'top center',
+                textfont: { color: '#1e293b', size: 14, weight: 'bold' }
+            },
+
+            // --- TRAITS EN POINTILLÉS POUR PROJECTER DANS L'ESPACE ---
+            {
+                type: 'scatter3d', mode: 'lines',
+                x: [0, 0, x, x, 0, 0, x, x],
+                y: [0, y, y, 0, 0, y, y, 0],
+                z: [z, z, z, z, 0, 0, 0, 0],
+                line: { color: '#cbd5e1', width: 2, dash: 'dash' },
+                hoverinfo: 'skip'
+            }
+        ];
+
+        const layout = {
+            margin: { l: 0, r: 0, b: 0, t: 0 },
+            paper_bgcolor: '#f8fafc',
+            scene: {
+                // Désactivation complète des boîtes par défaut de Plotly pour ne voir que nos vrais axes
+                xaxis: { visible: false, range: [-1, maxAxe + 1] },
+                yaxis: { visible: false, range: [-1, maxAxe + 1] },
+                zaxis: { visible: false, range: [-1, maxAxe + 1] },
+                camera: isNew ? { eye: { x: 1.7, y: -1.7, z: 1.3 } } : undefined,
+                aspectmode: 'cube'
+            },
+            showlegend: false
+        };
+
+        Plotly.react(gd, data, layout, { responsive: true, displayModeBar: false });
+    }
+
+    function updateUI() {
+        const x = document.getElementById('x-slider').value;
+        const y = document.getElementById('y-slider').value;
+        const z = document.getElementById('z-slider').value;
+
+        document.getElementById('x-val').innerText = `X = ${x}`;
+        document.getElementById('y-val').innerText = `Y = ${y}`;
+        document.getElementById('z-val').innerText = `Z = ${z}`;
+
+        document.getElementById('lbl-x').innerText = x;
+        document.getElementById('lbl-y').innerText = y;
+        document.getElementById('lbl-z').innerText = z;
+
+        draw(false);
+    }
+
+    function resetCamera() { draw(true); }
+
+    document.getElementById('x-slider').addEventListener('input', updateUI);
+    document.getElementById('y-slider').addEventListener('input', updateUI);
+    document.getElementById('z-slider').addEventListener('input', updateUI);
+
+    updateUI();
+    resetCamera();
+</script>
+</body>
+</html>
