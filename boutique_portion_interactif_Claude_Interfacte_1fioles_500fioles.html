@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>La Boutique des Potions Mystères — Loi des Grands Nombres</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple:      #534AB7;
+      --purple-light:#EEEDFE;
+      --purple-mid:  #7F77DD;
+      --purple-dark: #3C3489;
+      --amber:       #BA7517;
+      --red:         #E24B4A;
+      --bg:          #f7f6fb;
+      --surface:     #ffffff;
+      --surface2:    #f0eef9;
+      --text:        #1a1830;
+      --text-muted:  #6b6a7a;
+      --border:      rgba(83,74,183,0.15);
+      --radius:      12px;
+      --radius-sm:   8px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:        #12101f;
+        --surface:   #1e1b33;
+        --surface2:  #2a2645;
+        --text:      #edeaff;
+        --text-muted:#9590b8;
+        --border:    rgba(127,119,221,0.2);
+        --purple-light: #2a2645;
+        --purple-dark:  #c8c2ff;
+      }
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      width: 100%;
+      max-width: 720px;
+      box-shadow: 0 4px 24px rgba(83,74,183,0.08);
+    }
+
+    header { text-align: center; margin-bottom: 2rem; }
+    header .icon { font-size: 48px; line-height: 1; margin-bottom: 12px; }
+    header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+    header p  { font-size: 15px; color: var(--text-muted); }
+    header strong { color: var(--purple-mid); font-weight: 600; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+    .stat {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      text-align: center;
+      border: 0.5px solid var(--border);
+    }
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: 600;
+    }
+    .stat-value.purple { color: var(--purple-mid); }
+    .stat-value.amber  { color: var(--amber); }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .btn-primary {
+      padding: 12px 24px;
+      background: var(--purple);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-primary:hover  { background: #4540a3; }
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-secondary {
+      padding: 12px 20px;
+      background: var(--surface2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: var(--border); }
+
+    .btn-icon {
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: background 0.15s;
+    }
+    .btn-icon:hover { background: var(--border); }
+
+    #vial-icon { display: inline-block; transition: transform 0.2s ease; }
+
+    #last-result {
+      min-height: 36px;
+      text-align: center;
+      margin-bottom: 1.25rem;
+      font-size: 14px;
+    }
+    .badge {
+      display: inline-block;
+      border-radius: 20px;
+      padding: 5px 18px;
+      font-weight: 500;
+      animation: pop 0.3s ease;
+    }
+    .badge-crystal  { background: var(--purple); color: #fff; }
+    .badge-ordinary { background: var(--surface2); color: var(--text-muted); border: 0.5px solid var(--border); }
+    .badge-bulk     { background: var(--surface2); color: var(--text-muted); border: 0.5px solid var(--border); }
+
+    @keyframes pop {
+      0%   { transform: scale(0.5); opacity: 0; }
+      70%  { transform: scale(1.12); }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+
+    .legend {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .legend span { display: flex; align-items: center; gap: 6px; }
+    .legend-line {
+      width: 28px; height: 3px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      margin-bottom: 1.25rem;
+    }
+
+    .info-box {
+      background: var(--purple-light);
+      border-left: 3px solid var(--purple);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 12px 16px;
+    }
+    .info-box p {
+      font-size: 14px;
+      color: var(--purple-dark);
+      line-height: 1.7;
+    }
+
+    footer {
+      margin-top: 1.5rem;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      .stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .stat-value { font-size: 24px; }
+      .card { padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+
+  <header>
+    <div class="icon">⚗️</div>
+    <h1>La Boutique des Potions Mystères</h1>
+    <p>Chaque fiole a <strong>10 %</strong> de chances de contenir une ✨ Potion de Cristal</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Fioles ouvertes</div>
+      <div id="stat-total" class="stat-value">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Potions de Cristal</div>
+      <div id="stat-crystals" class="stat-value purple">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Fréquence</div>
+      <div id="stat-freq" class="stat-value amber">—</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-primary" onclick="openOne()">
+      <span id="vial-icon">⚗️</span> Ouvrir une fiole
+    </button>
+    <button class="btn-secondary" onclick="openMany(500)">
+      ⚡ Lancer 500 expériences
+    </button>
+    <button class="btn-icon" onclick="resetAll()" aria-label="Réinitialiser">
+      <i class="ti ti-refresh"></i>
+    </button>
+  </div>
+
+  <div id="last-result"></div>
+
+  <div class="legend">
+    <span><span class="legend-line" style="background:#7F77DD;"></span>Fréquence observée</span>
+    <span><span class="legend-line" style="background:#E24B4A; border-top: 2px dashed #E24B4A;"></span>Probabilité théorique (10 %)</span>
+  </div>
+
+  <div class="chart-wrap">
+    <canvas id="myChart" role="img" aria-label="Évolution de la fréquence d'obtention d'une Potion de Cristal. La courbe violette converge vers la ligne rouge à 10%.">Courbe de fréquence convergeant vers 10%</canvas>
+  </div>
+
+  <div class="info-box">
+    <p><strong>Observe :</strong> au début, le hasard fait de grands bonds, mais à la longue, les mathématiques reprennent le dessus !</p>
+  </div>
+
+</div>
+
+<footer>Simulation pédagogique — Loi des grands nombres — 6e / 5e</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  let total = 0, crystals = 0, chartPoints = [];
+
+  const ctx = document.getElementById('myChart').getContext('2d');
+  const myChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Fréquence observée (%)',
+          data: [],
+          borderColor: '#7F77DD',
+          backgroundColor: 'rgba(127,119,221,0.08)',
+          borderWidth: 2.5,
+          tension: 0.35,
+          pointRadius: 2,
+          pointBackgroundColor: '#7F77DD',
+          fill: true
+        },
+        {
+          label: 'Théorique 10%',
+          data: [{ x: 0, y: 10 }, { x: 10, y: 10 }],
+          borderColor: '#E24B4A',
+          borderWidth: 2,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 0 },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Nombre de fioles ouvertes', color: '#888780', font: { size: 12 } },
+          ticks: { color: '#888780', maxTicksLimit: 8 },
+          grid: { color: 'rgba(136,135,128,0.15)' },
+          min: 0
+        },
+        y: {
+          min: 0, max: 100,
+          title: { display: true, text: 'Fréquence (%)', color: '#888780', font: { size: 12 } },
+          ticks: { color: '#888780', callback: v => v + '%', stepSize: 20 },
+          grid: { color: 'rgba(136,135,128,0.15)' }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.datasetIndex === 1
+              ? 'Théorique : 10%'
+              : 'Fréquence : ' + ctx.parsed.y.toFixed(1) + '%'
+          }
+        }
+      }
+    }
+  });
+
+  function shouldRecord(n) {
+    if (n <= 30)  return true;
+    if (n <= 100) return n % 5 === 0;
+    if (n <= 500) return n % 10 === 0;
+    return n % 25 === 0;
+  }
+
+  function refreshChart() {
+    const maxX = Math.max(total, 10);
+    myChart.data.datasets[1].data = [{ x: 0, y: 10 }, { x: maxX, y: 10 }];
+    myChart.data.datasets[0].data = chartPoints;
+    myChart.update('none');
+  }
+
+  function updateDisplay() {
+    document.getElementById('stat-total').textContent    = total;
+    document.getElementById('stat-crystals').textContent = crystals;
+    document.getElementById('stat-freq').textContent     = total > 0
+      ? ((crystals / total) * 100).toFixed(1) + ' %' : '—';
+  }
+
+  function showBadge(html) {
+    document.getElementById('last-result').innerHTML = html;
+  }
+
+  function openOne() {
+    total++;
+    const got = Math.random() < 0.1;
+    if (got) crystals++;
+    if (shouldRecord(total)) chartPoints.push({ x: total, y: (crystals / total) * 100 });
+    refreshChart();
+    updateDisplay();
+    showBadge(got
+      ? '<span class="badge badge-crystal">✨ Potion de Cristal !</span>'
+      : '<span class="badge badge-ordinary">Potion ordinaire...</span>');
+    const icon = document.getElementById('vial-icon');
+    icon.style.transform = 'rotate(25deg) scale(1.4)';
+    setTimeout(() => { icon.style.transform = ''; }, 220);
+  }
+
+  function openMany(n) {
+    for (let i = 0; i < n; i++) {
+      total++;
+      if (Math.random() < 0.1) crystals++;
+      if (shouldRecord(total)) chartPoints.push({ x: total, y: (crystals / total) * 100 });
+    }
+    refreshChart();
+    updateDisplay();
+    showBadge('<span class="badge badge-bulk">⚡ ' + n + ' fioles ouvertes d\'un coup !</span>');
+  }
+
+  function resetAll() {
+    total = 0; crystals = 0; chartPoints = [];
+    myChart.data.datasets[0].data = [];
+    myChart.data.datasets[1].data = [{ x: 0, y: 10 }, { x: 10, y: 10 }];
+    myChart.update('none');
+    updateDisplay();
+    document.getElementById('last-result').innerHTML = '';
+  }
+</script>
+</body>
+</html>
